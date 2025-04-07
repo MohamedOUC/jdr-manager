@@ -1,0 +1,84 @@
+.App {
+  font-family: sans-serif;
+  padding: 20px;
+  background: #f2f2f2;
+  min-height: 100vh;
+}
+
+.carte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.monstre {
+  font-size: 32px;
+  padding: 12px 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.monstre:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.monstre-image {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.fiche {
+  position: fixed;
+  top: 100px;
+  right: 100px;
+  background: #a7784d;
+  border-radius: 16px;
+  padding: 1rem;
+  border: 1px solid #ccc;
+  box-shadow: 0 0px 20px rgba(0,0,0,0.1);
+  max-height: 40vh;
+  max-width: 500px;
+  font-size: 1.1rem;
+  overflow-y: auto;
+}
+
+.fiche ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.fiche ul li {
+  margin-bottom: 0.3rem;
+}
+
+.fiche button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: #222;
+  color: #c0b3b3;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.fiche button:hover {
+  background: #444;
+}
+
+.fiche img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 20px;
+  border-radius: 8px;
+  max-height: 300px;
+  object-fit: contain;
+}
