@@ -61,3 +61,39 @@ def import_monstres(db: Session = Depends(get_db)):
     except Exception as e:
         print("❌ Erreur pendant l'import :", e)
         raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
+    
+@router.post("/monstres")
+def create_monstre(monstre: MonstreCreate, db: Session = Depends(get_db)):
+    db_monstre = MonstreModel(
+        nom=monstre.nom,
+        niveau=monstre.niveau,
+        vigilance=monstre.vigilance,
+        initiative=monstre.initiative,
+        initiative_bonus=monstre.initiative_bonus,
+        pv_max=monstre.pv_max,
+        res=monstre.res,
+        xp=monstre.xp,
+        pieces=monstre.pieces,
+        attaques=[a.dict() for a in monstre.attaques],
+        capacites=[c.dict() for c in monstre.capacites],
+        description=monstre.description,
+        image=monstre.image
+    )
+    db.add(db_monstre)
+    db.commit()
+    db.refresh(db_monstre)
+    
+    try:
+        path = Path("app/data/db_monstres.json")
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        data.append(monstre.dict())
+        
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    except Exception as e:
+        print("Erreur ajout JSON:", e)
+    
+    return {"message": "Monstre ajouté", "id": db_monstre.id}

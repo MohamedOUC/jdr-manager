@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import './App.css';
+import {motion} from 'framer-motion';
 
 function App() {
   const [monstres, setMonstres] = useState([]);
@@ -42,7 +43,12 @@ function App() {
       </div>
 
       {selected && (
-        <div className="fiche">
+        <motion.div 
+          className="fiche"
+          drag
+          dragMomentum={false}
+          dragConstraints={{ left:0}}
+        >
           <h2>{selected.nom} - Niveau {selected.niveau}</h2>
 
           <img 
@@ -88,7 +94,7 @@ function App() {
           <p>{selected.description}</p>
 
           <button onClick={() => setSelected(null)}>Fermer</button>
-        </div>
+        </motion.div>
       )}
     </div>
   );
