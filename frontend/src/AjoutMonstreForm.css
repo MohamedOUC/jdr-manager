@@ -1,0 +1,30 @@
+.console-form {
+    background: #f9f9f9;
+    padding: 1rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    max-width: 500px;
+    margin: 1rem auto;
+  }
+  
+  .console-form h2 {
+    text-align: center;
+  }
+  
+  .console-form form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .console-form input,
+  .console-form textarea {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    font-size: 1rem;
+  }
+  
+  .console-form button {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+  }
+  

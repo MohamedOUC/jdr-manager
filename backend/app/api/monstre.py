@@ -67,16 +67,18 @@ def create_monstre(monstre: MonstreCreate, db: Session = Depends(get_db)):
     db_monstre = MonstreModel(
         nom=monstre.nom,
         niveau=monstre.niveau,
-        vigilance=monstre.vigilance,
-        initiative=monstre.initiative,
-        initiative_bonus=monstre.initiative_bonus,
         pv_max=monstre.pv_max,
         res=monstre.res,
+        initiative=monstre.initiative,
+        initiative_bonus=monstre.initiative_bonus,
+        fo=monstre.fo,
+        ad=monstre.ad,
+        mag=monstre.mag,
         xp=monstre.xp,
         pieces=monstre.pieces,
         attaques=[a.dict() for a in monstre.attaques],
         capacites=[c.dict() for c in monstre.capacites],
-        description=monstre.description,
+        stats_flexibles=monstre.stats_flexibles,
         image=monstre.image
     )
     db.add(db_monstre)
