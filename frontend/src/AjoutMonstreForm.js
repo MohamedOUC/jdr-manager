@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import axios from 'axios';
 import './AjoutMonstreForm.css';
 
-function AjoutMonstreForm({ onClose, onMonstreAjoute }) {
+function AjoutMonstreForm({ onClose, onMonstreAjoute, monstre: monstreInitial }) {
   // État initial du monstre avec les champs de base
   const [monstre, setMonstre] = useState({
     nom: '',
@@ -25,6 +25,12 @@ function AjoutMonstreForm({ onClose, onMonstreAjoute }) {
   // Ajouter une nouvelle stat flexible(
   const [newStatName, setNewStatName] = useState('');
   const [newStatValue, setNewStatValue] = useState('');
+
+  useEffect (() => {
+    if (monstreInitial) {
+      setMonstre(monstreInitial);
+    }
+  }, [monstreInitial]);
 
   const handleAddFlexibleStat = () => {
     if (newStatName) {
@@ -125,47 +131,63 @@ function AjoutMonstreForm({ onClose, onMonstreAjoute }) {
 
   // -------------------------
   //  ENVOI DU FORMULAIRE
-  // -------------------------
+  // ------------------------- 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Clone de l'objet
-    const monstreAEnvoyer = { ...monstre};
-
-    // Si le champ est vide, on l'enlève ou on le met à null
+  
+    const monstreAEnvoyer = { ...monstre };
+  
+    // Champ optionnel
     if (!monstreAEnvoyer.initiative_bonus) {
-        monstreAEnvoyer.initiative_bonus = null;  // ou monstreAEnvoyer.initiative_bonus = null ;
+      monstreAEnvoyer.initiative_bonus = null;
     }
-
+  
     try {
-      // Envoie de l'objet monstre au backend
-      await axios.post('http://172.17.139.10:8000/monstres', monstreAEnvoyer);
-      alert("✅ Monstre ajouté !");
-      onMonstreAjoute(); // Rafraîchit la liste dans l'UI parent
-      onClose();         
+      let response;
+  
+      if (monstre.id) {
+        // 🛠️ ÉDITION
+        response = await axios.put(
+          `http://172.17.139.10:8000/monstres-stockes/${monstre.id}`,
+          monstreAEnvoyer
+        );
+        alert("✏️ Monstre modifié !");
+      } else {
+        // ➕ CRÉATION
+        response = await axios.post(
+          'http://172.17.139.10:8000/monstres-stockes',
+          monstreAEnvoyer
+        );
+        alert("✅ Monstre ajouté !");
+      }
+  
+      onMonstreAjoute(response.data); // 👈 Envoie le monstre reçu en réponse
+      onClose();
+  
     } catch (err) {
-      console.error("Erreur d'ajout :", err);
-      alert("❌ Erreur lors de l'ajout.");
+      console.error("❌ Erreur :", err);
+      alert("Une erreur s'est produite.");
     }
   };
+  
 
   return (
     <div className="console-form">
       <h2>➕ Ajouter un Monstre</h2>
       <form onSubmit={handleSubmit}>
         {/* Champs de base */}
-        <input name="nom" placeholder="Nom" onChange={handleChange} required />
-        <input name="niveau" type="number" placeholder="Niveau" onChange={handleChange} required />
-        <input name="pv_max" type="number" placeholder="PV Max" onChange={handleChange} required />
-        <input name="res" type="number" placeholder="Résistance" onChange={handleChange} required />
-        <input name="initiative" type="number" placeholder="Initiative" onChange={handleChange} required />
-        <input name="initiative_bonus" type="string" placeholder="Bonus d'Initiative (laissé vide si aucun)" onChange={handleChange} required />
-        <input name="fo" type="number" placeholder="Force (FO)" onChange={handleChange} required />
-        <input name="ad" type="number" placeholder="Adresse (AD)" onChange={handleChange} required />
-        <input name="mag" type="number" placeholder="Magie (MAG)" onChange={handleChange} required />
-        <input name="xp" type="number" placeholder="XP" onChange={handleChange} required />
-        <input name="pieces" type="number" placeholder="Pièces" onChange={handleChange} required />
-        <input name="image" placeholder="Nom de l'image (ex: ratmolech.png)" onChange={handleChange} />
+        <input name="nom" value={monstre.nom} placeholder="Nom" onChange={handleChange} required />
+        <input name="niveau" value={monstre.niveau} type="number" placeholder="Niveau" onChange={handleChange} required />
+        <input name="pv_max" value={monstre.pv_max} type="number" placeholder="PV Max" onChange={handleChange} required />
+        <input name="res" value={monstre.res} type="number" placeholder="Résistance" onChange={handleChange} required />
+        <input name="initiative" value={monstre.initiative} type="number" placeholder="Initiative" onChange={handleChange} required />
+        <input name="initiative_bonus" value={monstre.initiative_bonus} type="string" placeholder="Bonus d'Initiative (laissé vide si aucun)" onChange={handleChange} required />
+        <input name="fo" value={monstre.fo} type="number" placeholder="Force (FO)" onChange={handleChange} required />
+        <input name="ad" value={monstre.ad} type="number" placeholder="Adresse (AD)" onChange={handleChange} required />
+        <input name="mag" value={monstre.mag} type="number" placeholder="Magie (MAG)" onChange={handleChange} required />
+        <input name="xp" value={monstre.xp} type="number" placeholder="XP" onChange={handleChange} required />
+        <input name="pieces" value={monstre.pieces} type="number" placeholder="Pièces" onChange={handleChange} required />
+        <input name="image" value={monstre.image} placeholder="Nom de l'image (ex: ratmolech.png)" onChange={handleChange} />
 
         {/* ----------------- ATTAQUES ----------------- */}
         <h3>Attaques</h3>

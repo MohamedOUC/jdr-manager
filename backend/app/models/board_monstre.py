@@ -3,7 +3,7 @@ from app.db.database import Base
 from sqlalchemy.dialects.sqlite import JSON
 
 class Monstre(Base):
-    __tablename__ = "monstres"
+    __tablename__ = "monstres_plateau"
 
     id = Column(Integer, primary_key=True, index=True)
     nom = Column(String, index=True)

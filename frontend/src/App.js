@@ -5,6 +5,7 @@ import AjoutMonstreForm from './AjoutMonstreForm';
 import './App.css';
 import DiceD20 from './components/DiceD20';
 import './components/DiceD20.css';
+import ConfirmationModal from './ConfirmationModal';
 
 // -----------------------------------------------
 //        GESTION DU LANCER DE DÉ MULTIPLE
@@ -71,22 +72,30 @@ function DicePopup({ visible, onClose, resultat, formule }) {
 }
 
 function App() {
-  const [monstres, setMonstres] = useState([]);
-  const [selected, setSelected] = useState(null);
+  const [MonstresPlateau, setMonstresPlateau] = useState([]);
+  const [monstresStockes, setMonstresStockes] = useState([]);
+  const [selectedMonstres, setSelectedMonstres] = useState([])
   const [showForm, setShowForm] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
   const [diceResult, setDiceResult] = useState(null);
   const [formuleUsed, setFormuleUsed] = useState('');
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [monstreToDeleteIndex, setMonstreToDeleteIndex] = useState(null);
+  const [monstreOptionsId, setMonstreOptionsId] = useState(null);
+  const [monstreEnEdition, setMonstreEnEdition] = useState(null);
 
-  const chargerMonstres = () => {
-    axios
-      .get('http://172.17.139.10:8000/monstres')
-      .then((res) => setMonstres(res.data))
-      .catch((err) => console.error('Erreur lors de la récupération :', err));
-  };
-
+  // Chargement des monstres du plateau au démarrage
   useEffect(() => {
-    chargerMonstres();
+    axios.get("http://localhost:8000/monstres-plateau/board-monstres")
+      .then(res => setMonstresPlateau(res.data))
+      .catch(err => console.error("Erreur board :", err));
+  }, []);
+
+ // Monstres stockés (base)
+  useEffect(() => {
+    axios.get("http://localhost:8000/monstres-stockes")
+      .then(res => setMonstresStockes(res.data))
+      .catch(err => console.error("Erreur stock :", err));
   }, []);
 
   const handleJet = (formule, stats) => {
@@ -95,8 +104,90 @@ function App() {
     setDiceResult(res);
     setPopupVisible(true);
   };
-  const modifierStat = (key, delta) => {
-    setSelected((prev) => ({ ...prev, [key]: prev[key] + delta }));
+
+  // Ouvrir une fiche
+  const handleOpenFiche = (monstre, index) => {
+    const idTemp = `${monstre.id}-${index}`; // Pour distinguer les duplicatas
+    if (!selectedMonstres.some(m => m._uid === idTemp)) {
+      setSelectedMonstres(prev => [
+        ...prev, 
+        { ...monstre, _uid: idTemp, _index: index}]);
+    }
+  };
+
+  // Fermer une fiche
+  const handleCloseFiche = (uid) => {
+    setSelectedMonstres(prev => prev.filter(m => m._uid !== uid));
+  };
+
+  // Modifier les stats d'un monstre spécifique
+  const modifierStat = (uid, key, delta) => {
+    setSelectedMonstres(prev => 
+      prev.map(m => 
+        m._uid === uid ? { ...m, [key]: m[key] + delta} : m
+      )
+    );
+
+    setMonstresPlateau(prev =>
+      prev.map((m, i) => {
+        const fiche = selectedMonstres.find(f => f._uid === uid);
+        if (!fiche || fiche._index !== i) return m;
+        return { ...m, [key]: m[key] + delta};
+      })
+    );
+};
+
+  // Pour les stats flexibles => Meilleure agencement pour plus tard
+  const modifierFlexibleStat = (uid, key, delta) => {
+    setSelectedMonstres(prev =>
+      prev.map(monstre => {
+        if (monstre._uid !== uid) return monstre;
+        return {
+          ...monstre,
+          stats_flexibles: {
+            ...monstre.stats_flexibles,
+            [key]: monstre.stats_flexibles[key] + delta
+          }
+        };
+      })
+    );
+
+    setMonstresPlateau(prev => 
+      prev.map((m, i) => {
+        const fiche = selectedMonstres.find(f => f._uid === uid);
+        if (!fiche || fiche._index !== i) return m;
+        return {
+          ...m,
+          stats_flexibles: {
+            ...m.stats_flexibles,
+            [key]: m.stats_flexibles[key] + delta
+          }
+        };
+      })
+    );
+  };
+
+  // Handlers pour les monstres stockés (edit, supprimer, etc...)
+  const handleEditMonstre = (monstre) => {
+      setMonstreEnEdition(monstre);
+      setShowForm(true);
+  };
+  
+  const handleDuplicateMonstre =(monstre) => {
+    const copie = { ...monstre, id: Date.now() };
+    setMonstresStockes(prev => [...prev, copie]);
+    setMonstreOptionsId(null);
+  };
+
+  const handleDeleteMonstre = async (id) => {
+    try {
+      await axios.delete (`http://localhost:8000/monstres-stockes/${id}`);
+      setMonstresStockes(prev => prev.filter(m => m.id !== id));
+      setMonstreOptionsId(null);
+    } catch (err) {
+      console.error("Erreur lors de la suppression :", err);
+      alert("❌ La suppression a échoué !")
+    }
   };
 
   return (
@@ -104,137 +195,162 @@ function App() {
       <h1>Carte de jeu</h1>
       <button onClick={() => setShowForm(true)}>➕ Ajouter un monstre</button>
 
-      <div className="carte">
-        {monstres.map((monstre) => (
-          <div
-            key={monstre.id}
-            className="monstre"
-            onClick={() => setSelected(monstre)}
-          >
-            <img
-              src={`/images/${monstre.image}`}
-              alt={monstre.nom}
-              className="monstre-image"
-            />
+      <div className="console">
+        {monstresStockes.map((m) => (
+          <div key={m.id} className="monstre-stocke" draggable onDragStart={(e) => e.dataTransfer.setData("monstre", JSON.stringify(m))}>
+            <img src={`/images/${m.image}`} alt={m.nom} />
+            <p>{m.nom}</p>
+
+            <button 
+              className="monstre-options-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMonstreOptionsId(m.id);
+              }}
+            >
+              ⋮ 
+            </button>
+
+            {monstreOptionsId === m.id && (
+              <div className='monstre-options-menu'>
+                <div onClick={() => handleEditMonstre(m)}>✏️ Modifier</div>
+                <div onClick={() => handleDuplicateMonstre(m)}>📋 Dupliquer</div>
+                <div onClick={() => handleDeleteMonstre(m.id)}>❌ Supprimer</div>
+                <div onClick={() => alert(JSON.stringidy(m, null,2))}>🧠 Voir JSON</div>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {selected && (
-        <motion.div className="fiche" drag dragMomentum={false}>
-          <h2>🐀 {selected.nom} - Niveau {selected.niveau}</h2>
-          <img
-            src={`/images/${selected.image}`}
-            alt={selected.nom}
-          />
+      <div
+        className="carte"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          const monstre = JSON.parse(e.dataTransfer.getData("monstre"));
+          setMonstresPlateau(prev => [...prev, monstre]);
+        }}
+      >
+        {MonstresPlateau.map((monstre, index) => (
+          <div key={index} className="monstre" style={{ position: 'relative'}}>
+            <img
+              src={`/images/${monstre.image}`}
+              alt={monstre.nom}
+              className='monstre-image'
+              onClick={() => handleOpenFiche(monstre, index)}
+            />
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setMonstreToDeleteIndex(index);
+                setConfirmVisible(true);
+              }}
+              style={{
+                position: 'absolute',
+                top: '-8px',
+                right: '-8px',
+                background: 'red',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                width: '20px',
+                height: '20px',
+                fontSize: '12px',
+                lineHeight: '20px',
+                padding: 0
+              }}
+            >
+              x
+            </button>
+          </div>
+        ))}
+      </div>
 
-          <p>📊 <strong>Stats :</strong></p>
+      {selectedMonstres.map((monstre) => (
+        <motion.div key={monstre._uid} className="fiche" drag dragMomentum={false}>
+          <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+            <img src={`/images/${monstre.image}`} alt={monstre.nom} style={{ width: '80px', marginRight: '1rem' }} />
+            
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                <h2 style={{ margin: 0}}> {monstre.nom} – Niveau {monstre.niveau}</h2>
+              </div>
+              <div className="stats-grid"> 
+                {[
+                  { key: 'initiative', label: '⚡', name: 'INIT' },
+                  { key: 'pv_max', label: '❤️', name: 'PV' },
+                  { key: 'res', label: '🛡️', name: 'RES' },
+                  { key: 'fo', label: '💪', name: 'FO' },
+                  { key: 'ad', label: '🏃‍♂️', name: 'AD' },
+                  { key: 'mag', label: '🔥', name: 'MAG' },
+                  { key: 'xp', label: '🎖️', name: 'XP' },
+                  { key: 'pieces', label: '💰', name: 'PO' }
+                ].map(stat => (
+                  <div key={stat.key} className="stat-item">
+                    <span>{stat.label} {stat.name} : {monstre[stat.key]}</span>
+                    <button onClick={() => modifierStat(monstre._uid, stat.key, -1)}>-</button>
+                    <button onClick={() => modifierStat(monstre._uid, stat.key, 1)}>+</button>
+                  </div>
+                ))}
+              </div>
+
+              {monstre.initiative_bonus && <p>🌀 {monstre.initiative_bonus}</p>}
+            </div>
+          </div>
+
+          {monstre.stats_flexibles && Object.entries(monstre.stats_flexibles).length > 0 && (
+            <>
+              <p style={{ margin: '0.5rem 0 0.2rem' }}>🧩 Flexibles :</p>
+              <div className="stats-compact">
+                {Object.entries(monstre.stats_flexibles).map(([key, val]) => (
+                  <div key={key} className="stat-block">
+                    <span>{key} : {val}</span>
+                    <div>
+                      <button onClick={() => modifierFlexibleStat(monstre._uid, key, -1)}>-</button>
+                      <button onClick={() => modifierFlexibleStat(monstre._uid, key, 1)}>+</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <p><strong>⚔️ Attaques :</strong></p>
           <ul>
-            <li>⚡ Initiative : {selected.initiative}
-              <button onClick={() => modifierStat('initiative', -1)}>-</button>
-              <button onClick={() => modifierStat('initiative', 1)}>+</button>
-            </li>
-            {selected.initiative_bonus && <li>🌀 {selected.initiative_bonus}</li>}
-            <li>❤️ PV Max : {selected.pv_max}
-              <button onClick={() => modifierStat('pv_max', -1)}>-</button>
-              <button onClick={() => modifierStat('pv_max', 1)}>+</button>
-            </li>
-            <li>🛡️ Résistance : {selected.res}
-              <button onClick={() => modifierStat('res', -1)}>-</button>
-              <button onClick={() => modifierStat('res', 1)}>+</button>
-            </li>
-            <li>💪 FO : {selected.fo}
-              <button onClick={() => modifierStat('fo', -1)}>-</button>
-              <button onClick={() => modifierStat('fo', 1)}>+</button>
-            </li>
-            <li>🏃‍♂️ AD : {selected.ad}
-              <button onClick={() => modifierStat('ad', -1)}>-</button>
-              <button onClick={() => modifierStat('ad', 1)}>+</button>
-            </li>
-            <li>🔥 MAG : {selected.mag}
-              <button onClick={() => modifierStat('mag', -1)}>-</button>
-              <button onClick={() => modifierStat('mag', 1)}>+</button>
-            </li>
-            <li>🎖️ XP : {selected.xp}
-              <button onClick={() => modifierStat('xp', -1)}>-</button>
-              <button onClick={() => modifierStat('xp', 1)}>+</button>
-            </li>
-            <li>💰 Pièces : {selected.pieces}
-              <button onClick={() => modifierStat('pieces', -1)}>-</button>
-              <button onClick={() => modifierStat('pieces', 1)}>+</button>
-            </li>
-
-            {selected.stats_flexibles &&
-              Object.entries(selected.stats_flexibles).map(([key, val]) => (
-                <li key={key}>🧩 {key} : {val}
-                  <button onClick={() =>
-                    setSelected((prev) => ({
-                      ...prev,
-                      stats_flexibles: {
-                        ...prev.stats_flexibles,
-                        [key]: val - 1
-                      }
-                    }))
-                  }>-</button>
-                  <button onClick={() =>
-                    setSelected((prev) => ({
-                      ...prev,
-                      stats_flexibles: {
-                        ...prev.stats_flexibles,
-                        [key]: val + 1
-                      }
-                    }))
-                  }>+</button>
-                </li>
-              ))}
-          </ul>
-
-          <p>⚔️ <strong>Attaques :</strong></p>
-          <ul>
-            {selected.attaques.map((atk, index) => {
-              const allStats = {
-                FO: selected.fo,
-                AD: selected.ad,
-                MAG: selected.mag,
-                ...(selected.stats_flexibles || {})
+            {monstre.attaques.map((atk, index) => {
+              const stats = {
+                FO: monstre.fo,
+                AD: monstre.ad,
+                MAG: monstre.mag,
+                ...(monstre.stats_flexibles || {})
               };
-              const formuleAffichee = remplacerStats(atk.degats, allStats);
+              const formuleAffichee = remplacerStats(atk.degats, stats);
               return (
                 <li key={index}>
-                  <strong>🗡️ {atk.nom}</strong> – Dégâts : <code>{formuleAffichee}</code>
-                  {atk.effet && <> | 🌀 Effet : {atk.effet}</>}
-                  {atk.limite && <> | ⏳ Limite : {atk.limite}</>}
-                  <button
-                    onClick={() => {
-                      const stats = {
-                        FO: selected.fo,
-                        AD: selected.ad,
-                        MAG: selected.mag,
-                        ...(selected.stats_flexibles || {})
-                      };
-                      handleJet(atk.degats, stats)
-                    }}
-                  >🎲</button>
+                   {atk.nom} – <code>{formuleAffichee}</code>
+                  {atk.effet && <> | 🌀 {atk.effet}</>}
+                  {atk.limite && <> | ⏳ {atk.limite}</>}
+                  <button onClick={() => handleJet(atk.degats, stats)}>🎲</button>
                 </li>
               );
             })}
           </ul>
 
-          <p>🎯 <strong>Capacités :</strong></p>
+          <p><strong>🎯 Capacités :</strong></p>
           <ul>
-            {selected.capacites.map((cap, index) => (
+            {monstre.capacites.map((cap, index) => (
               <li key={index}>
-                <strong>✅ {cap.nom}</strong> – {cap.effet}
-                {cap.limite && <> | ⏳ Limite : {cap.limite}</>}
+                ✅ {cap.nom} – {cap.effet}
+                {cap.limite && <> | ⏳ {cap.limite}</>}
               </li>
             ))}
           </ul>
 
-          <button onClick={() => setSelected(null)}>Fermer</button>
+          <button onClick={() => handleCloseFiche(monstre._uid)}>Fermer</button>
         </motion.div>
-      )}
+      ))}
 
-      {/* Popup intégrée ici */}
       <DicePopup
         visible={popupVisible}
         resultat={diceResult}
@@ -245,11 +361,36 @@ function App() {
       {showForm && (
         <div className="form-container">
           <AjoutMonstreForm
-            onClose={() => setShowForm(false)}
-            onMonstreAjoute={chargerMonstres}
+            monstre={monstreEnEdition} // pré-remplissage si édition
+            onClose={() => {
+              setShowForm(false);
+              setMonstreEnEdition(null);
+            }}
+            onMonstreAjoute={(monstreRecu) => {
+              setMonstresStockes(prev => {
+                const exists = prev.some(m => m.id === monstreRecu.id);
+                return exists
+                  ? prev.map(m => m.id === monstreRecu.id ? monstreRecu: m)
+                  : [...prev, monstreRecu];
+              });
+            }}
           />
         </div>
       )}
+
+      <ConfirmationModal
+        visible={confirmVisible}
+        message="❌ Supprimer ce monstre du plateau ?"
+        onConfirm={() => {
+          setMonstresPlateau(prev => prev.filter((_, i) => i !== monstreToDeleteIndex));
+          setConfirmVisible(false);
+          setMonstreToDeleteIndex(null);
+        }}
+        onCancel={() => {
+          setConfirmVisible(false);
+          setMonstreToDeleteIndex(null);
+        }}
+      />
     </div>
   );
 }

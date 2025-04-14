@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends # Créer le groupe de route / Injecter la DB 
 from sqlalchemy.orm import Session 
 from app.db.database import SessionLocal
-from app.models.monstre import Monstre as MonstreModel
-from app.schemas.monstre import Monstre as MonstreSchema
+from app.models.board_monstre import Monstre as MonstreModel
+from app.schemas.board_monstre import Monstre as MonstreSchema
 import json
 from pathlib import Path
-from app.schemas.monstre import MonstreCreate, Attaque, Capacite
+from app.schemas.board_monstre import MonstreCreate
 
-router = APIRouter()
+router = APIRouter(prefix="/monstres-plateau", tags=["Monstres Plateau"])
 
 def get_db():
     db = SessionLocal() # Ouvre une session SQLAlchemy
@@ -16,7 +16,7 @@ def get_db():
     finally:
         db.close() # Ferme automatiquement après la requête
         
-@router.get("/monstres", response_model=list[MonstreSchema]) # FastAPI convertit les objets SQLAlchemy en JSON 
+@router.get("/board-monstres", response_model=list[MonstreSchema]) # FastAPI convertit les objets SQLAlchemy en JSON 
 def get_monstres(db: Session = Depends(get_db)):
     monstres = db.query(MonstreModel).all()
     return [MonstreSchema.from_orm(m) for m in monstres]
@@ -62,7 +62,7 @@ def import_monstres(db: Session = Depends(get_db)):
         print("❌ Erreur pendant l'import :", e)
         raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
     
-@router.post("/monstres")
+@router.post("/board-monstres")
 def create_monstre(monstre: MonstreCreate, db: Session = Depends(get_db)):
     db_monstre = MonstreModel(
         nom=monstre.nom,
